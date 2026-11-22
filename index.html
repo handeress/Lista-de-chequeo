@@ -146,7 +146,7 @@ function pintar(){
   const act=listas.filter(l=>!(resp[l.id]||{}).terminada), ter=listas.filter(l=>(resp[l.id]||{}).terminada);
   const fila=l=>{const c=cuenta(l),n=l.items.length;return`<button class="tarjeta" data-l="${esc(l.id)}"><div class="t">${esc(l.titulo)}</div>
     <div class="s">${esc(l.proyecto||'')}${l.proyecto?' · ':''}${n} ítems · ${c.sin} sin marcar · ${c.aprobado} aprobados · ${c.revisar} a revisar · ${c.descartado} descartados</div>${barra(c,n)}</button>`;};
-  m.innerHTML=`<div class="estado" id="est"></div>`+(listas.length?'':`<div class="vacio">No hay listas todavía.<br>Pídele a Claude en el chat que te arme una lista de aprobación.</div>`)
+  m.innerHTML=`<div class="estado" id="est"></div>`+(listas.length?'':`<div class="vacio">No hay listas todavía.<br>Cuando Claude te proponga una lista larga en el chat, aparece aquí.</div>`)
     +act.map(fila).join('')+(ter.length?`<h2 class="grupo">Terminadas</h2>`+ter.map(fila).join(''):'');
   m.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{S.vista='lista';S.lista=b.dataset.l;S.filtro='todas';S.q='';window.scrollTo(0,0);pintar();});
   pintarEstado();

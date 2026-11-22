@@ -1,6 +1,6 @@
 # Aprobaciones
 
-App para aprobar listas largas desde el celular: cada ítem se marca **Aprobar**, **Revisar** o **Descartar**, con nota opcional. Claude arma la lista y lee las respuestas; Andrés no copia ni pega nada.
+App para aprobar las listas largas que Claude le propone a Andrés en el chat: en vez de contestar ítem por ítem escribiendo, él marca cada uno **Aprobar**, **Revisar** o **Descartar** (con nota opcional) y toca **Terminé**. Claude lee las respuestas y sigue. Solo para listas largas; las cortas se responden en el chat con números.
 
 - App: https://handeress.github.io/Lista-de-chequeo/ (código público, sin datos).
 - Datos: repo privado `handeress/Bitacora-datos`, carpeta `aprobaciones/`.
