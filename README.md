@@ -24,6 +24,10 @@ App para aprobar las listas largas que Claude le propone a Andrés en el chat: e
 - `id` de la lista sin espacios; `id` de cada ítem único dentro de la lista y estable (si se reemplaza la lista, las respuestas se conservan por id).
 - `grupo`, `detalle` y `valor` son opcionales. `valor` numérico se muestra en pesos; texto se muestra tal cual.
 
+### Listas de porcentaje (avance)
+
+Con `"modo": "porcentaje"` en la lista, cada ítem muestra el porcentaje con botones −5, +5 y 100 y una casilla para escribirlo; si el ítem trae `valor`, muestra el ejecutado (valor × %). Cada ítem lleva `"pct"` con el porcentaje de partida. Arriba de cada grupo y abajo en el pie sale el avance ponderado por valor. La respuesta guarda `"pct"` en cada ítem cambiado.
+
 ## Lo que escribe la app: `aprobaciones/respuestas/<id>.json`
 
 ```json
@@ -49,4 +53,5 @@ Al abrir, la app muestra directamente la lista vigente (la más reciente sin ter
 Subir `CACHE` en `sw.js` y `VERSION` en `index.html` en cada cambio. Para actualizar en el celular: cerrar y abrir dos veces con internet.
 
 - 1.0 (22/11/2026): listas por grupos, tres estados con nota, aprobar grupo, filtros, búsqueda, Terminé, sin señal y sincronización.
+- 1.2 (22/11/2026): listas de porcentaje (`modo: porcentaje`) para dar avances de obra.
 - 1.1 (22/11/2026): abre la lista vigente al entrar; listas archivadas por Claude se ven aparte, solo consulta.

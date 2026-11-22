@@ -50,6 +50,15 @@ h2.grupo button{font-size:12px;letter-spacing:0;text-transform:none;font-weight:
 .botones .a.on{background:var(--apr);color:#fff;border-color:var(--apr)}
 .botones .r.on{background:var(--rev);color:#fff;border-color:var(--rev)}
 .botones .d.on{background:var(--des);color:#fff;border-color:var(--des)}
+.pct{display:flex;gap:6px;align-items:center;margin:9px 0 0 34px}
+.pct button{border:1px solid var(--linea);background:var(--hoja);border-radius:9px;min-height:44px;min-width:50px;font-size:15px;font-weight:700}
+.pct button.cien{color:var(--apr)}
+.pct input{width:76px;min-height:44px;text-align:center;font-size:18px;font-weight:700;border:2px solid var(--acento);border-radius:9px;background:#fff}
+.pct .u{font-weight:700;margin-left:-2px}
+.pctinfo{font-size:13px;color:var(--gris);margin:6px 0 0 34px;display:flex;justify-content:space-between;gap:8px}
+.pctinfo b{color:var(--tinta)} .pctinfo .antes{color:var(--acento);font-weight:600}
+.item.cambiado{border-left-color:var(--acento)} .item.lleno{border-left-color:var(--apr)}
+.barra.p i{background:var(--apr)}
 .nota{margin:7px 0 0 34px}
 .nota textarea{width:100%;min-height:58px;background:#fff;border:1px solid var(--linea);border-radius:9px;padding:8px 10px;resize:vertical}
 .pie{position:fixed;bottom:0;left:0;right:0;z-index:5;background:var(--hoja);border-top:1px solid var(--linea);padding:9px 12px;
@@ -74,7 +83,7 @@ input.campo{width:100%;background:var(--hoja);border:1px solid var(--linea);bord
 <div id="toast"></div>
 <script>
 'use strict';
-const VERSION='1.1';
+const VERSION='1.2';
 const GH={dueno:'handeress',repo:'Bitacora-datos',carpeta:'aprobaciones'};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -144,6 +153,15 @@ function marcar(lid,iid,est){if(esArch(lid))return toast('Lista archivada: solo 
 function nota(lid,iid,txt){if(esArch(lid))return;const R=resp[lid]=resp[lid]||{lista:lid,items:{}};const it=R.items[iid]||{estado:''};R.items[iid]={estado:it.estado,nota:txt,fecha:ahora()};programar(lid);pintarPie();}
 function cuenta(l){const R=(resp[l.id]||{}).items||{};const c={aprobado:0,revisar:0,descartado:0,sin:0};for(const it of l.items){const e=(R[it.id]||{}).estado;if(c[e]!==undefined)c[e]++;else c.sin++;}return c;}
 function barra(c,n){const p=k=>(100*c[k]/Math.max(n,1)).toFixed(1)+'%';return`<div class="barra"><i style="width:${p('aprobado')};background:var(--apr)"></i><i style="width:${p('revisar')};background:var(--rev)"></i><i style="width:${p('descartado')};background:var(--des)"></i></div>`;}
+const esPct=l=>l&&l.modo==='porcentaje';
+const num1=v=>Math.round(v*10)/10;
+function pctBase(it){const v=+it.pct;return isFinite(v)?v:0;}
+function pctDe(l,it){const r=(((resp[l.id]||{}).items||{})[it.id])||{};return (r.pct!==undefined&&r.pct!==null&&r.pct!=='')?+r.pct:pctBase(it);}
+function cambiado(l,it){const r=(((resp[l.id]||{}).items||{})[it.id])||{};return r.pct!==undefined&&r.pct!==null&&r.pct!==''&&+r.pct!==pctBase(it);}
+function avance(l,items){let v=0,e=0;for(const it of items){const val=typeof it.valor==='number'?it.valor:0;v+=val;e+=val*pctDe(l,it)/100;}return{v,e,p:v?100*e/v:0};}
+function fmtPct(p){return num1(p).toLocaleString('es-CO')+' %';}
+function ponerPct(lid,iid,v){if(esArch(lid))return toast('Lista archivada: solo consulta');v=Math.max(0,Math.min(100,num1(+v||0)));
+  const R=resp[lid]=resp[lid]||{lista:lid,items:{}};const it=R.items[iid]||{estado:'',nota:''};R.items[iid]=Object.assign({},it,{pct:v,fecha:ahora()});programar(lid);pintar();}
 function formatoValor(v){if(v===undefined||v===null||v==='')return'';if(typeof v==='number')return'$ '+Math.round(v).toLocaleString('es-CO');return esc(v);}
 
 function pintarEstado(){const e=$('#est');if(e){e.textContent=estado;e.className='estado'+(/No se pudo|Sin llave/.test(estado)?' err':'');}}
@@ -153,7 +171,10 @@ function pintar(){
   if(S.vista==='lista'){const l=listas.find(x=>x.id===S.lista)||archivadas.find(x=>x.id===S.lista); if(!l){S.vista='inicio';return pintar();} return pintarLista(l);}
   $('#titulo').textContent='Aprobaciones';
   const act=listas.filter(l=>!(resp[l.id]||{}).terminada), ter=listas.filter(l=>(resp[l.id]||{}).terminada);
-  const fila=l=>{const c=cuenta(l),n=l.items.length;return`<button class="tarjeta" data-l="${esc(l.id)}"><div class="t">${esc(l.titulo)}</div>
+  const fila=l=>{const c=cuenta(l),n=l.items.length;
+    if(esPct(l)){const a=avance(l,l.items),nc=l.items.filter(it=>cambiado(l,it)).length;return`<button class="tarjeta" data-l="${esc(l.id)}"><div class="t">${esc(l.titulo)}</div>
+    <div class="s">${esc(l.proyecto||'')}${l.proyecto?' · ':''}${n} ítems · avance ${fmtPct(a.p)} · ${nc} cambiados</div><div class="barra p"><i style="width:${a.p.toFixed(1)}%"></i></div></button>`;}
+    return`<button class="tarjeta" data-l="${esc(l.id)}"><div class="t">${esc(l.titulo)}</div>
     <div class="s">${esc(l.proyecto||'')}${l.proyecto?' · ':''}${n} ítems · ${c.sin} sin marcar · ${c.aprobado} aprobados · ${c.revisar} a revisar · ${c.descartado} descartados</div>${barra(c,n)}</button>`;};
   m.innerHTML=`<div class="estado" id="est"></div>`+(listas.length?'':`<div class="vacio">No hay listas todavía.<br>Cuando Claude te proponga una lista larga en el chat, aparece aquí.</div>`)
     +act.map(fila).join('')+(ter.length?`<h2 class="grupo">Terminadas (Claude las archiva al leerlas)</h2>`+ter.map(fila).join(''):'')+(archivadas.length?(S.verArch?`<h2 class="grupo">Archivadas</h2>`+archivadas.map(fila).join(''):`<p><button class="btn sec" id="verArch">Ver archivadas (${archivadas.length})</button></p>`):'');
@@ -165,21 +186,27 @@ function pintarLista(l){
   $('#titulo').textContent=l.titulo; const R=(resp[l.id]||{}).items||{}; const c=cuenta(l);
   const q=S.q.trim().toLowerCase();
   const vis=l.items.map((it,i)=>({it,i})).filter(({it})=>{const e=(R[it.id]||{}).estado||'';
+    if(S.filtro==='camb'&&!cambiado(l,it))return false; if(S.filtro==='menos'&&pctDe(l,it)>=100)return false; if(S.filtro==='cien'&&pctDe(l,it)<100)return false;
     if(S.filtro==='sin'&&e)return false; if(['aprobado','revisar','descartado'].includes(S.filtro)&&e!==S.filtro)return false;
     if(q&&!((it.titulo||'')+' '+(it.detalle||'')+' '+(it.grupo||'')).toLowerCase().includes(q))return false; return true;});
   const grupos=[]; for(const x of vis){const g=x.it.grupo||'';let G=grupos.find(y=>y.g===g);if(!G)grupos.push(G={g,v:[]});G.v.push(x);}
   const chip=(k,t,n)=>`<button class="chip${S.filtro===k?' on':''}" data-f="${k}">${t} ${n}</button>`;
   let h=`<div class="estado" id="est"></div>`+(l.descripcion?`<div class="desc">${esc(l.descripcion)}</div>`:'')
-   +`<div class="chips">${chip('todas','Todas',l.items.length)}${chip('sin','Sin marcar',c.sin)}${chip('aprobado','Aprobados',c.aprobado)}${chip('revisar','Revisar',c.revisar)}${chip('descartado','Descartados',c.descartado)}</div>`
+   +(esPct(l)?`<div class="chips">${chip('todas','Todas',l.items.length)}${chip('menos','Sin terminar',l.items.filter(it=>pctDe(l,it)<100).length)}${chip('cien','Al 100 %',l.items.filter(it=>pctDe(l,it)>=100).length)}${chip('camb','Cambiados',l.items.filter(it=>cambiado(l,it)).length)}</div>`
+     :`<div class="chips">${chip('todas','Todas',l.items.length)}${chip('sin','Sin marcar',c.sin)}${chip('aprobado','Aprobados',c.aprobado)}${chip('revisar','Revisar',c.revisar)}${chip('descartado','Descartados',c.descartado)}</div>`)
    +`<input class="buscar" id="q" type="search" placeholder="Buscar en la lista" value="${esc(S.q)}">`;
   if(!vis.length)h+=`<div class="vacio">Nada con este filtro.</div>`;
   for(const G of grupos){
-    if(G.g)h+=`<h2 class="grupo"><span>${esc(G.g)}</span><button data-ga="${esc(G.g)}">✓ Aprobar sin marcar</button></h2>`;
+    if(G.g)h+=esPct(l)?`<h2 class="grupo"><span>${esc(G.g)}</span><span>${fmtPct(avance(l,l.items.filter(it=>(it.grupo||'')===G.g)).p)}</span></h2>`
+      :`<h2 class="grupo"><span>${esc(G.g)}</span><button data-ga="${esc(G.g)}">✓ Aprobar sin marcar</button></h2>`;
     for(const{it,i}of G.v){const r=R[it.id]||{};const e=r.estado||'';const largo=(it.detalle||'').length>140;const ab=S.abiertos[it.id];
-      const verNota=e==='revisar'||e==='descartado'||r.nota||S.abiertos['n'+it.id];
-      h+=`<div class="item ${e}"><div class="cab"><span class="num">${i+1}</span><span class="ti">${esc(it.titulo)}</span>${it.valor!==undefined?`<span class="val">${formatoValor(it.valor)}</span>`:''}</div>`
+      const P=esPct(l),pv=P?pctDe(l,it):0,cb=P&&cambiado(l,it);
+      const verNota=(!P&&(e==='revisar'||e==='descartado'))||r.nota||S.abiertos['n'+it.id];
+      h+=`<div class="item ${P?(cb?'cambiado':pv>=100?'lleno':''):e}"><div class="cab"><span class="num">${i+1}</span><span class="ti">${esc(it.titulo)}</span>${it.valor!==undefined?`<span class="val">${formatoValor(it.valor)}</span>`:''}</div>`
        +(it.detalle?`<div class="de${largo&&!ab?' corto':''}">${esc(it.detalle)}</div>`+(largo?`<button class="mas" data-ab="${esc(it.id)}">${ab?'Ver menos':'Ver todo'}</button>`:''):'')
-       +`<div class="botones"><button class="a${e==='aprobado'?' on':''}" data-m="aprobado" data-i="${esc(it.id)}">✓ Aprobar</button><button class="r${e==='revisar'?' on':''}" data-m="revisar" data-i="${esc(it.id)}">↻ Revisar</button><button class="d${e==='descartado'?' on':''}" data-m="descartado" data-i="${esc(it.id)}">✕ Descartar</button></div>`
+       +(P?`<div class="pct"><button data-pm="-5" data-i="${esc(it.id)}">−5</button><input type="number" inputmode="decimal" min="0" max="100" step="1" value="${num1(pv)}" data-pi="${esc(it.id)}" aria-label="Porcentaje"><span class="u">%</span><button data-pm="5" data-i="${esc(it.id)}">+5</button><button class="cien" data-pm="100" data-i="${esc(it.id)}">100</button></div>`
+          +`<div class="pctinfo"><span>${typeof it.valor==='number'?'Ejecutado <b>'+formatoValor(it.valor*pv/100)+'</b>':''}</span>${cb?`<span class="antes">antes ${fmtPct(pctBase(it))}</span>`:''}</div>`
+       :`<div class="botones"><button class="a${e==='aprobado'?' on':''}" data-m="aprobado" data-i="${esc(it.id)}">✓ Aprobar</button><button class="r${e==='revisar'?' on':''}" data-m="revisar" data-i="${esc(it.id)}">↻ Revisar</button><button class="d${e==='descartado'?' on':''}" data-m="descartado" data-i="${esc(it.id)}">✕ Descartar</button></div>`)
        +(verNota?`<div class="nota"><textarea data-n="${esc(it.id)}" placeholder="${e==='revisar'?'¿Qué hay que revisar?':e==='descartado'?'¿Por qué se descarta? (opcional)':'Nota'}">${esc(r.nota||'')}</textarea></div>`
          :`<button class="mas" data-nn="${esc(it.id)}">+ Nota</button>`)+`</div>`;}
   }
@@ -187,6 +214,8 @@ function pintarLista(l){
   const m=$('#main');
   m.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{S.filtro=b.dataset.f;pintar();});
   m.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>marcar(l.id,b.dataset.i,b.dataset.m));
+  m.querySelectorAll('[data-pm]').forEach(b=>b.onclick=()=>{const it=l.items.find(x=>x.id===b.dataset.i);const d=+b.dataset.pm;ponerPct(l.id,b.dataset.i,d===100?100:pctDe(l,it)+d);});
+  m.querySelectorAll('[data-pi]').forEach(t=>{t.onfocus=()=>t.select();t.onchange=()=>ponerPct(l.id,t.dataset.pi,t.value);t.onkeydown=ev=>{if(ev.key==='Enter')t.blur();};});
   m.querySelectorAll('[data-ab]').forEach(b=>b.onclick=()=>{S.abiertos[b.dataset.ab]=!S.abiertos[b.dataset.ab];pintar();});
   m.querySelectorAll('[data-nn]').forEach(b=>b.onclick=()=>{S.abiertos['n'+b.dataset.nn]=true;pintar();const t=m.querySelector(`[data-n="${CSS.escape(b.dataset.nn)}"]`);t&&t.focus();});
   m.querySelectorAll('[data-n]').forEach(t=>t.oninput=()=>nota(l.id,t.dataset.n,t.value));
@@ -196,10 +225,12 @@ function pintarLista(l){
   const qi=$('#q'); qi.oninput=()=>{S.q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{const p=qi.selectionStart;pintar();const n=$('#q');n.focus();n.setSelectionRange(p,p);},350);};
 }
 function pintarPie(){if(S.vista!=='lista')return;const l=listas.find(x=>x.id===S.lista);if(!l){const a=archivadas.find(x=>x.id===S.lista);if(a)$('#pie').innerHTML='<div class="cuenta">Lista archivada: solo consulta.</div>';return;}const c=cuenta(l);const ter=(resp[l.id]||{}).terminada;
-  $('#pie').innerHTML=`<div class="cuenta"><b class="a">${c.aprobado}</b> aprobados · <b class="r">${c.revisar}</b> revisar · <b class="d">${c.descartado}</b> descartados<br>${c.sin} sin marcar${pendientes.has(l.id)?' · por enviar':' · enviado'}</div>`
+  if(esPct(l)){const a=avance(l,l.items),nc=l.items.filter(it=>cambiado(l,it)).length;
+   $('#pie').innerHTML=`<div class="cuenta">Avance <b>${fmtPct(a.p)}</b> · ejecutado <b>${formatoValor(a.e)}</b><br>${nc} cambiados${pendientes.has(l.id)?' · por enviar':' · enviado'}</div><button class="btn${ter?' sec':''}" id="ter">${ter?'Reabrir':'Terminé'}</button>`;}
+  else $('#pie').innerHTML=`<div class="cuenta"><b class="a">${c.aprobado}</b> aprobados · <b class="r">${c.revisar}</b> revisar · <b class="d">${c.descartado}</b> descartados<br>${c.sin} sin marcar${pendientes.has(l.id)?' · por enviar':' · enviado'}</div>`
    +`<button class="btn${ter?' sec':''}" id="ter">${ter?'Reabrir':'Terminé'}</button>`;
   $('#ter').onclick=()=>{const R=resp[l.id]=resp[l.id]||{lista:l.id,items:{}};
-    if(!R.terminada&&c.sin&&!confirmarSuave(c.sin))return; R.terminada=!R.terminada;R.actualizado=ahora();programar(l.id);toast(R.terminada?'Lista terminada: Claude ya puede leerla':'Lista reabierta');S.vista=R.terminada?'inicio':'lista';pintar();};}
+    if(!esPct(l)&&!R.terminada&&c.sin&&!confirmarSuave(c.sin))return; R.terminada=!R.terminada;R.actualizado=ahora();programar(l.id);toast(R.terminada?'Lista terminada: Claude ya puede leerla':'Lista reabierta');S.vista=R.terminada?'inicio':'lista';pintar();};}
 let avisoTer=0; function confirmarSuave(n){if(Date.now()-avisoTer<4000)return true;avisoTer=Date.now();toast('Quedan '+n+' sin marcar. Toca otra vez para terminar igual');return false;}
 function pintarAjustes(){$('#titulo').textContent='Ajustes';$('#pie').hidden=true;
   $('#main').innerHTML=`<div class="estado" id="est"></div><div class="aviso">La app usa la misma llave de la Bitácora si ya la abriste en este navegador. Si no, pega aquí la llave "Bitacora celular" (solo para ${GH.repo}).</div>
@@ -222,7 +253,10 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
     {id:'1',grupo:'Cimentación',titulo:'Placa de tanques 4,60 × 1,30 × 0,12',detalle:'Concreto 21 MPa, malla D-257, 3 cajones de tolete.',valor:1850000},
     {id:'2',grupo:'Cimentación',titulo:'Solado de limpieza',valor:120000},
     {id:'3',grupo:'Instalaciones',titulo:'Acometida de agua fría 1/2" RDE 13,5',detalle:'Tramos por verificar en obra: acometida ≈18 m, impulsión ≈38 m, agua fría ≈32 m, agua caliente ≈5 m en CPVC. '.repeat(2),valor:640000},
-    {id:'4',grupo:'Instalaciones',titulo:'Caja de paso para la bomba futura'}]}];estado='Modo de prueba: no se envía nada.';}
+    {id:'4',grupo:'Instalaciones',titulo:'Caja de paso para la bomba futura'}]},
+    {id:'demo-pct',titulo:'Ejemplo · Avance Suesca',proyecto:'Suesca',modo:'porcentaje',fecha:'2026-01-01 00:00',descripcion:'Cambia el porcentaje de cada actividad.',items:[
+    {id:'c1',grupo:'Contrato',titulo:'Cimentación',valor:4850000,pct:100},{id:'c2',grupo:'Contrato',titulo:'Portón',valor:1750000,pct:40,detalle:'Pendiente llevar hierro e instalación'},
+    {id:'a1',grupo:'Adicionales',titulo:'Acometida',valor:270000,pct:0}]}];estado='Modo de prueba: no se envía nada.';}
   else { if(!token){token=await llaveBitacora(); if(token)localStorage.setItem('apr_token',token);} }
   abrirVigente(); pintar(); sincronizar();
   if('serviceWorker' in navigator&&!demo) navigator.serviceWorker.register('sw.js').catch(()=>{});
