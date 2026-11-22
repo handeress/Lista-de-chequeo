@@ -40,8 +40,13 @@ App para aprobar las listas largas que Claude le propone a Andrés en el chat: e
 - `terminada` = Andrés tocó **Terminé**. Claude lee la lista cuando está terminada, o antes si Andrés lo pide.
 - Claude no escribe en `respuestas/`.
 
+## Archivo
+
+Al abrir, la app muestra directamente la lista vigente (la más reciente sin terminar). Cuando Claude lee una lista terminada, la mueve de `listas/` a `archivo/` (con `git mv`); la app la muestra en "Ver archivadas", solo para consulta. Las respuestas se quedan en `respuestas/`.
+
 ## Versiones
 
 Subir `CACHE` en `sw.js` y `VERSION` en `index.html` en cada cambio. Para actualizar en el celular: cerrar y abrir dos veces con internet.
 
 - 1.0 (22/11/2026): listas por grupos, tres estados con nota, aprobar grupo, filtros, búsqueda, Terminé, sin señal y sincronización.
+- 1.1 (22/11/2026): abre la lista vigente al entrar; listas archivadas por Claude se ven aparte, solo consulta.

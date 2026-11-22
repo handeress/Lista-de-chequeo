@@ -74,20 +74,20 @@ input.campo{width:100%;background:var(--hoja);border:1px solid var(--linea);bord
 <div id="toast"></div>
 <script>
 'use strict';
-const VERSION='1.0';
+const VERSION='1.1';
 const GH={dueno:'handeress',repo:'Bitacora-datos',carpeta:'aprobaciones'};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ahora=()=>new Date().toISOString();
 const EST={aprobado:'Aprobado',revisar:'Revisar',descartado:'Descartado'};
 const S={vista:'inicio',lista:null,filtro:'todas',q:'',abiertos:{}};
-let listas=[], resp={}, token='', estado='', ocupado=false, pendientes=new Set(), tSub;
+let listas=[], archivadas=[], resp={}, abrioVigente=false, token='', estado='', ocupado=false, pendientes=new Set(), tSub;
 const demo=new URLSearchParams(location.search).has('demo');
 
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2200);}
 function fecha(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleDateString('es-CO',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});}
-function guardarLocal(){try{localStorage.setItem('apr_listas',JSON.stringify(listas));localStorage.setItem('apr_resp',JSON.stringify(resp));localStorage.setItem('apr_pend',JSON.stringify([...pendientes]));}catch(e){}}
-function cargarLocal(){try{listas=JSON.parse(localStorage.getItem('apr_listas')||'[]');resp=JSON.parse(localStorage.getItem('apr_resp')||'{}');pendientes=new Set(JSON.parse(localStorage.getItem('apr_pend')||'[]'));token=localStorage.getItem('apr_token')||'';}catch(e){}}
+function guardarLocal(){try{localStorage.setItem('apr_listas',JSON.stringify(listas));localStorage.setItem('apr_arch',JSON.stringify(archivadas));localStorage.setItem('apr_resp',JSON.stringify(resp));localStorage.setItem('apr_pend',JSON.stringify([...pendientes]));}catch(e){}}
+function cargarLocal(){try{listas=JSON.parse(localStorage.getItem('apr_listas')||'[]');archivadas=JSON.parse(localStorage.getItem('apr_arch')||'[]');resp=JSON.parse(localStorage.getItem('apr_resp')||'{}');pendientes=new Set(JSON.parse(localStorage.getItem('apr_pend')||'[]'));token=localStorage.getItem('apr_token')||'';}catch(e){}}
 
 /* La llave: la misma de la app Bitácora (mismo sitio handeress.github.io), o una pegada en Ajustes. */
 function llaveBitacora(){return new Promise(res=>{try{const r=indexedDB.open('bitacora');
@@ -114,6 +114,11 @@ async function sincronizar(){
     else{ if(!r.ok)throw new Error(falla(r)); const arch=(await r.json()).filter(f=>f.name.endsWith('.json'));
       const nuevas=[]; for(const f of arch){const{datos}=await leerJSON(GH.carpeta+'/listas/'+f.name); if(datos&&datos.id&&Array.isArray(datos.items))nuevas.push(datos);}
       listas=nuevas; }
+    const ra=await gh(GH.carpeta+'/archivo');
+    if(ra.ok){ const arch=(await ra.json()).filter(f=>f.name.endsWith('.json')); const viejas=[];
+      for(const f of arch){ const ya=archivadas.find(x=>x._f===f.name); if(ya){viejas.push(ya);continue;} const{datos}=await leerJSON(GH.carpeta+'/archivo/'+f.name); if(datos&&datos.id){datos._f=f.name;viejas.push(datos);} }
+      archivadas=viejas;
+      for(const l of archivadas){ if(resp[l.id]&&resp[l.id]._arch)continue; const rem=await leerJSON(GH.carpeta+'/respuestas/'+l.id+'.json'); resp[l.id]=Object.assign({items:{}},rem.datos||{},{_arch:true}); } }
     for(const l of listas){
       const ruta=GH.carpeta+'/respuestas/'+l.id+'.json'; const rem=await leerJSON(ruta); const loc=resp[l.id]||{items:{}};
       const m={lista:l.id,items:Object.assign({},(rem.datos||{}).items||{}),terminada:(rem.datos||{}).terminada||false,actualizado:(rem.datos||{}).actualizado||''};
@@ -124,15 +129,19 @@ async function sincronizar(){
         const body=JSON.stringify({message:'Aprobaciones: '+l.titulo,content:b64txt(JSON.stringify(m,null,1)),sha:rem.sha});
         const p=await gh(ruta,{method:'PUT',body}); if(!p.ok)throw new Error(falla(p)); pendientes.delete(l.id); }
     }
-    estado='Al día · '+fecha(ahora()); guardarLocal();
+    estado='Al día · '+fecha(ahora()); guardarLocal(); abrirVigente();
   }catch(e){estado='No se pudo sincronizar: '+e.message+'. Los cambios siguen guardados en el celular.';}
   ocupado=false; pintar();
 }
 function programar(id){pendientes.add(id);guardarLocal();clearTimeout(tSub);tSub=setTimeout(sincronizar,2500);}
 
-function marcar(lid,iid,est){const R=resp[lid]=resp[lid]||{lista:lid,items:{}};const it=R.items[iid]||{};
+function vigente(){ const act=listas.filter(l=>!(resp[l.id]||{}).terminada); if(!act.length)return null;
+  return act.slice().sort((a,b)=>String(b.fecha||b.id).localeCompare(String(a.fecha||a.id)))[0]; }
+function abrirVigente(){ if(abrioVigente||S.vista!=='inicio')return; const l=vigente(); if(l){abrioVigente=true;S.vista='lista';S.lista=l.id;S.filtro='todas';} }
+const esArch=lid=>!listas.some(x=>x.id===lid)&&archivadas.some(x=>x.id===lid);
+function marcar(lid,iid,est){if(esArch(lid))return toast('Lista archivada: solo consulta');const R=resp[lid]=resp[lid]||{lista:lid,items:{}};const it=R.items[iid]||{};
   const nuevo=it.estado===est?'':est; R.items[iid]={estado:nuevo,nota:it.nota||'',fecha:ahora()}; programar(lid); pintar();}
-function nota(lid,iid,txt){const R=resp[lid]=resp[lid]||{lista:lid,items:{}};const it=R.items[iid]||{estado:''};R.items[iid]={estado:it.estado,nota:txt,fecha:ahora()};programar(lid);pintarPie();}
+function nota(lid,iid,txt){if(esArch(lid))return;const R=resp[lid]=resp[lid]||{lista:lid,items:{}};const it=R.items[iid]||{estado:''};R.items[iid]={estado:it.estado,nota:txt,fecha:ahora()};programar(lid);pintarPie();}
 function cuenta(l){const R=(resp[l.id]||{}).items||{};const c={aprobado:0,revisar:0,descartado:0,sin:0};for(const it of l.items){const e=(R[it.id]||{}).estado;if(c[e]!==undefined)c[e]++;else c.sin++;}return c;}
 function barra(c,n){const p=k=>(100*c[k]/Math.max(n,1)).toFixed(1)+'%';return`<div class="barra"><i style="width:${p('aprobado')};background:var(--apr)"></i><i style="width:${p('revisar')};background:var(--rev)"></i><i style="width:${p('descartado')};background:var(--des)"></i></div>`;}
 function formatoValor(v){if(v===undefined||v===null||v==='')return'';if(typeof v==='number')return'$ '+Math.round(v).toLocaleString('es-CO');return esc(v);}
@@ -141,14 +150,15 @@ function pintarEstado(){const e=$('#est');if(e){e.textContent=estado;e.className
 function pintar(){
   const m=$('#main'); $('#atras').hidden=S.vista==='inicio'; $('#pie').hidden=S.vista!=='lista';
   if(S.vista==='ajustes')return pintarAjustes();
-  if(S.vista==='lista'){const l=listas.find(x=>x.id===S.lista); if(!l){S.vista='inicio';return pintar();} return pintarLista(l);}
+  if(S.vista==='lista'){const l=listas.find(x=>x.id===S.lista)||archivadas.find(x=>x.id===S.lista); if(!l){S.vista='inicio';return pintar();} return pintarLista(l);}
   $('#titulo').textContent='Aprobaciones';
   const act=listas.filter(l=>!(resp[l.id]||{}).terminada), ter=listas.filter(l=>(resp[l.id]||{}).terminada);
   const fila=l=>{const c=cuenta(l),n=l.items.length;return`<button class="tarjeta" data-l="${esc(l.id)}"><div class="t">${esc(l.titulo)}</div>
     <div class="s">${esc(l.proyecto||'')}${l.proyecto?' · ':''}${n} ítems · ${c.sin} sin marcar · ${c.aprobado} aprobados · ${c.revisar} a revisar · ${c.descartado} descartados</div>${barra(c,n)}</button>`;};
   m.innerHTML=`<div class="estado" id="est"></div>`+(listas.length?'':`<div class="vacio">No hay listas todavía.<br>Cuando Claude te proponga una lista larga en el chat, aparece aquí.</div>`)
-    +act.map(fila).join('')+(ter.length?`<h2 class="grupo">Terminadas</h2>`+ter.map(fila).join(''):'');
+    +act.map(fila).join('')+(ter.length?`<h2 class="grupo">Terminadas (Claude las archiva al leerlas)</h2>`+ter.map(fila).join(''):'')+(archivadas.length?(S.verArch?`<h2 class="grupo">Archivadas</h2>`+archivadas.map(fila).join(''):`<p><button class="btn sec" id="verArch">Ver archivadas (${archivadas.length})</button></p>`):'');
   m.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{S.vista='lista';S.lista=b.dataset.l;S.filtro='todas';S.q='';window.scrollTo(0,0);pintar();});
+  const va=$('#verArch'); if(va)va.onclick=()=>{S.verArch=true;pintar();};
   pintarEstado();
 }
 function pintarLista(l){
@@ -185,7 +195,7 @@ function pintarLista(l){
     if(n){programar(l.id);toast(n+' aprobados');}else toast('No había ítems sin marcar');pintar();});
   const qi=$('#q'); qi.oninput=()=>{S.q=qi.value;clearTimeout(qi._t);qi._t=setTimeout(()=>{const p=qi.selectionStart;pintar();const n=$('#q');n.focus();n.setSelectionRange(p,p);},350);};
 }
-function pintarPie(){if(S.vista!=='lista')return;const l=listas.find(x=>x.id===S.lista);if(!l)return;const c=cuenta(l);const ter=(resp[l.id]||{}).terminada;
+function pintarPie(){if(S.vista!=='lista')return;const l=listas.find(x=>x.id===S.lista);if(!l){const a=archivadas.find(x=>x.id===S.lista);if(a)$('#pie').innerHTML='<div class="cuenta">Lista archivada: solo consulta.</div>';return;}const c=cuenta(l);const ter=(resp[l.id]||{}).terminada;
   $('#pie').innerHTML=`<div class="cuenta"><b class="a">${c.aprobado}</b> aprobados · <b class="r">${c.revisar}</b> revisar · <b class="d">${c.descartado}</b> descartados<br>${c.sin} sin marcar${pendientes.has(l.id)?' · por enviar':' · enviado'}</div>`
    +`<button class="btn${ter?' sec':''}" id="ter">${ter?'Reabrir':'Terminé'}</button>`;
   $('#ter').onclick=()=>{const R=resp[l.id]=resp[l.id]||{lista:l.id,items:{}};
@@ -214,7 +224,7 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
     {id:'3',grupo:'Instalaciones',titulo:'Acometida de agua fría 1/2" RDE 13,5',detalle:'Tramos por verificar en obra: acometida ≈18 m, impulsión ≈38 m, agua fría ≈32 m, agua caliente ≈5 m en CPVC. '.repeat(2),valor:640000},
     {id:'4',grupo:'Instalaciones',titulo:'Caja de paso para la bomba futura'}]}];estado='Modo de prueba: no se envía nada.';}
   else { if(!token){token=await llaveBitacora(); if(token)localStorage.setItem('apr_token',token);} }
-  pintar(); sincronizar();
+  abrirVigente(); pintar(); sincronizar();
   if('serviceWorker' in navigator&&!demo) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 </script>
