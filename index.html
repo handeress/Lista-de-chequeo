@@ -78,12 +78,14 @@ input.campo{width:100%;background:var(--hoja);border:1px solid var(--linea);bord
 </head>
 <body>
 <header><button class="atras" id="atras" hidden>‹</button><h1 id="titulo">Aprobaciones</h1><button class="aj" id="aj" title="Ajustes">⚙</button></header>
+<div id="instBar" hidden style="display:none;gap:10px;align-items:center;margin:8px 12px 0;padding:10px 12px;background:#fffdf8;border:1px solid #c2410c;border-radius:10px"><span style="flex:1">Instala Aprobaciones en la pantalla del celular.</span><button class="btn" id="bInst" style="background:#c2410c">Instalar</button></div>
+<script>(function(){let ev=null;const bar=()=>document.getElementById("instBar");const ver=v=>{const b=bar();if(!b)return;b.hidden=!v;b.style.display=v?"flex":"none";};window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();ev=e;ver(true);});window.addEventListener("appinstalled",()=>{ev=null;ver(false);});document.addEventListener("click",async e=>{if(e.target&&e.target.id==="bInst"&&ev){ev.prompt();try{await ev.userChoice;}catch(_){}ev=null;ver(false);}});document.addEventListener("DOMContentLoaded",()=>ver(!!ev));})();</script>
 <main id="main"></main>
 <div class="pie" id="pie" hidden></div>
 <div id="toast"></div>
 <script>
 'use strict';
-const VERSION='1.2';
+const VERSION='1.3';
 const GH={dueno:'handeress',repo:'Bitacora-datos',carpeta:'aprobaciones'};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -165,7 +167,11 @@ function ponerPct(lid,iid,v){if(esArch(lid))return toast('Lista archivada: solo 
 function formatoValor(v){if(v===undefined||v===null||v==='')return'';if(typeof v==='number')return'$ '+Math.round(v).toLocaleString('es-CO');return esc(v);}
 
 function pintarEstado(){const e=$('#est');if(e){e.textContent=estado;e.className='estado'+(/No se pudo|Sin llave/.test(estado)?' err':'');}}
-function pintar(){
+// Atrás: subpágina → página inicial del elemento → inicio de la app → cierra la app.
+function nivel(){return S.vista==='inicio'?0:1;}
+function syncHist(){const L=nivel(),n=(history.state&&history.state.n)||0;if(L>n){for(let i=n+1;i<=L;i++)history.pushState({n:i},'');}else if(L===n)history.replaceState({n:L},'');else history.go(L-n);}
+window.addEventListener('popstate',e=>{const n=(e.state&&e.state.n)||0;if(n===0)S.vista='inicio';scrollTo(0,0);pintar();});
+function pintar(){syncHist();
   const m=$('#main'); $('#atras').hidden=S.vista==='inicio'; $('#pie').hidden=S.vista!=='lista';
   if(S.vista==='ajustes')return pintarAjustes();
   if(S.vista==='lista'){const l=listas.find(x=>x.id===S.lista)||archivadas.find(x=>x.id===S.lista); if(!l){S.vista='inicio';return pintar();} return pintarLista(l);}
@@ -242,7 +248,7 @@ function pintarAjustes(){$('#titulo').textContent='Ajustes';$('#pie').hidden=tru
   $('#bBit').onclick=async()=>{const v=await llaveBitacora();if(!v)return toast('No encontré la llave de la Bitácora en este navegador');token=v;localStorage.setItem('apr_token',v);toast('Llave de la Bitácora lista');sincronizar();};
   $('#bSync').onclick=()=>sincronizar();}
 
-$('#atras').onclick=()=>{S.vista='inicio';pintar();};
+$('#atras').onclick=()=>history.back();
 $('#aj').onclick=()=>{S.vista='ajustes';pintar();};
 addEventListener('online',sincronizar);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')sincronizar();});

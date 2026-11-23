@@ -55,3 +55,5 @@ Subir `CACHE` en `sw.js` y `VERSION` en `index.html` en cada cambio. Para actual
 - 1.0 (22/11/2026): listas por grupos, tres estados con nota, aprobar grupo, filtros, búsqueda, Terminé, sin señal y sincronización.
 - 1.2 (22/11/2026): listas de porcentaje (`modo: porcentaje`) para dar avances de obra.
 - 1.1 (22/11/2026): abre la lista vigente al entrar; listas archivadas por Claude se ven aparte, solo consulta.
+
+- 23-nov-2026: atrás por niveles (subpágina → elemento → lista o inicio → cierra la app); botón Instalar en el celular.
